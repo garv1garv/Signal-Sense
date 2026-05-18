@@ -49,6 +49,22 @@ models = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load all ML models at startup, release on shutdown."""
+    # Ensure the Optuna study database is initialized so the dashboard doesn't crash on start
+    try:
+        import optuna
+        from optuna.samplers import NSGAIISampler
+        Path("data/hpo_logs").mkdir(parents=True, exist_ok=True)
+        optuna.create_study(
+            study_name="signalsense-v1",
+            directions=["maximize", "maximize", "maximize"],
+            sampler=NSGAIISampler(seed=42),
+            storage="sqlite:///data/hpo_logs/study.db",
+            load_if_exists=True,
+        )
+        logger.info("Optuna study database initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to pre-initialize Optuna study database: {e}")
+
     cfg = get_active_config()
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
