@@ -1,0 +1,93 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: signalsense-base:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEYS=dev-key-123
+      - WANDB_API_KEY=${WANDB_API_KEY}
+      - REDIS_HOST=redis
+    volumes:
+      - ./data:/app/data
+      - ./checkpoints:/app/checkpoints
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  worker:
+    image: signalsense-base:latest
+    command: celery -A serving.tasks worker --loglevel=info -c 1 --pool=solo
+    environment:
+      - WANDB_API_KEY=${WANDB_API_KEY}
+      - REDIS_HOST=redis
+    volumes:
+      - ./data:/app/data
+      - ./checkpoints:/app/checkpoints
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  beat:
+    image: signalsense-base:latest
+    command: celery -A serving.tasks beat --loglevel=info
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  dashboard:
+    image: ghcr.io/optuna/optuna-dashboard
+    ports:
+      - "8080:8080"
+    command: optuna-dashboard sqlite:///data/hpo_logs/study.db --host 0.0.0.0 --port 8080
+    volumes:
+      - ./data:/data
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  redis_data:
