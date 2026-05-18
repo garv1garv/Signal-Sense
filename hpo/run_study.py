@@ -21,7 +21,7 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 def run_hpo(
     n_trials: int = 60,
     study_name: str = "signalsense-v1",
-    storage: str = "sqlite:///data/hpo_logs/study.db",
+    storage: str = "sqlite:///data/hpo_logs/study.db?timeout=30&journal_mode=WAL",
     population_size: int = 20,
     seed: int = 42,
     log_to_wandb: bool = True,

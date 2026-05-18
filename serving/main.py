@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
             study_name="signalsense-v1",
             directions=["maximize", "maximize", "maximize"],
             sampler=NSGAIISampler(seed=42),
-            storage="sqlite:///data/hpo_logs/study.db",
+            storage="sqlite:///data/hpo_logs/study.db?timeout=30&journal_mode=WAL",
             load_if_exists=True,
         )
         logger.info("Optuna study database initialized successfully.")
