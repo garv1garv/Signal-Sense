@@ -125,6 +125,8 @@ def make_dataset(
                 "attention_mask": inputs["attention_mask"][0],
                 "pixel_values": inputs["pixel_values"][0],
                 "labels": inputs["input_ids"][0].clone(),
+                "reference_event": label["event"],
+                "frame_path": frame_path,
             })
             if len(records) >= max_samples:
                 break
@@ -200,5 +202,66 @@ def train(
     processor.save_pretrained(output_dir)
 
     eval_results = trainer.evaluate()
-    logger.info(f"Eval results: {eval_results}")
+    
+    # Custom evaluation on eval_ds to compute bert_f1_mean
+    try:
+        from llm_pipeline.evaluate import evaluate_narration
+        
+        logger.info("Running custom BERTScore evaluation on validation split...")
+        model.eval()
+        predictions = []
+        references = []
+        
+        prompt_text = (
+            "<|user|>\n<|image_1|>\n"
+            "What is happening in this video sequence?\n<|end|>\n"
+            "<|assistant|>\n"
+        )
+        
+        for idx in range(len(eval_ds)):
+            sample = eval_ds[idx]
+            ref_event = sample["reference_event"]
+            frame_path = sample["frame_path"]
+            
+            # Load real image
+            img = Image.open(frame_path).convert("RGB")
+            
+            inputs = processor(
+                text=prompt_text,
+                images=[img],
+                return_tensors="pt"
+            ).to(model.device)
+            
+            with torch.no_grad():
+                output_ids = model.generate(
+                    **inputs,
+                    max_new_tokens=150,
+                    do_sample=False,
+                    temperature=1.0,
+                )
+                
+            generated = output_ids[:, inputs["input_ids"].shape[1]:]
+            text = processor.decode(generated[0], skip_special_tokens=True).strip()
+            
+            # Parse output
+            pred_event = "unknown"
+            for line in text.split("\n"):
+                line = line.strip()
+                if line.lower().startswith("event:"):
+                    pred_event = line.split(":", 1)[1].strip().rstrip(".")
+                    break
+            if pred_event == "unknown" and text:
+                pred_event = text[:200]
+                
+            predictions.append(pred_event)
+            references.append(ref_event)
+            
+        metrics = evaluate_narration(predictions, references, device=str(model.device))
+        eval_results["eval_bert_f1_mean"] = metrics.get("bert_f1_mean", 0.0)
+        logger.info(f"Custom evaluation BERTScore F1: {eval_results['eval_bert_f1_mean']:.4f}")
+    except Exception as eval_err:
+        logger.error(f"Failed to run custom evaluation: {eval_err}", exc_info=True)
+        eval_results["eval_bert_f1_mean"] = 0.0
+
+    logger.info(f"Final Eval results: {eval_results}")
     return eval_results

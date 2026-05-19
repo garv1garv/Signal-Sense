@@ -15,6 +15,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./checkpoints:/app/checkpoints
+      - ./data/huggingface_cache:/root/.cache/huggingface
     deploy:
       resources:
         reservations:
@@ -42,6 +43,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./checkpoints:/app/checkpoints
+      - ./data/huggingface_cache:/root/.cache/huggingface
     deploy:
       resources:
         reservations:
@@ -52,6 +54,8 @@ services:
     depends_on:
       redis:
         condition: service_started
+    healthcheck:
+      disable: true
     restart: unless-stopped
 
   beat:
@@ -62,6 +66,8 @@ services:
     depends_on:
       redis:
         condition: service_started
+    healthcheck:
+      disable: true
     restart: unless-stopped
 
   redis:

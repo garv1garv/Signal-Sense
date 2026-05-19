@@ -47,13 +47,20 @@ class NarrationEngine:
             bnb_4bit_compute_dtype=torch.bfloat16,
         )
 
-        logger.info(f"Loading base model: {base_model_id}")
+        try:
+            import flash_attn  # noqa: F401
+            attn_impl = "flash_attention_2"
+        except ImportError:
+            attn_impl = "eager"
+
+        logger.info(f"Loading base model: {base_model_id} (attention implementation: {attn_impl})")
         self.model = AutoModelForCausalLM.from_pretrained(
             base_model_id,
             quantization_config=bnb_config,
             trust_remote_code=True,
             device_map="auto",
             torch_dtype=torch.bfloat16,
+            _attn_implementation=attn_impl,
         )
         self.processor = AutoProcessor.from_pretrained(
             base_model_id, trust_remote_code=True
@@ -102,7 +109,6 @@ class NarrationEngine:
             max_new_tokens=self.max_new_tokens,
             do_sample=False,
             temperature=1.0,
-            repetition_penalty=1.1,
         )
 
         # Decode only the newly generated tokens

@@ -40,11 +40,18 @@ class LocalTeacherVLM:
         self.device = device
         logger.info(f"Loading teacher model {model_id}...")
         self.processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+        try:
+            import flash_attn  # noqa: F401
+            attn_impl = "flash_attention_2"
+        except ImportError:
+            attn_impl = "eager"
+
         self.model = AutoModelForCausalLM.from_pretrained(
             model_id,
             trust_remote_code=True,
             torch_dtype=torch.bfloat16,
-            device_map="auto"
+            device_map="auto",
+            _attn_implementation=attn_impl,
         )
         self.model.eval()
 

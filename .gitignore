@@ -25,6 +25,7 @@ env/
 data/raw/
 data/frames/
 data/eval_videos/
+data/huggingface_cache/
 data/hpo_logs/*.db
 checkpoints/
 
@@ -43,3 +44,13 @@ Thumbs.db
 
 # W&B
 wandb/
+
+
+# Large binaries & data archives
+archive.zip
+*.zip
+*.mp4
+*.doc
+
+# Temporary annotations
+data/annotations/tmp_frames/

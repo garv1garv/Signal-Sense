@@ -25,7 +25,7 @@ class FrameExtractor:
     """Extracts frames at a fixed FPS, optionally filtering near-duplicates
     using perceptual hash distance to avoid wasting CV compute."""
 
-    def __init__(self, target_fps: float = 2.0, phash_threshold: int = 8):
+    def __init__(self, target_fps: float = 2.0, phash_threshold: int = 3):
         """
         Args:
             target_fps: Target extraction rate. Source frames are subsampled

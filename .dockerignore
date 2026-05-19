@@ -12,3 +12,14 @@ checkpoints
 wandb
 *.md
 LICENSE
+*.doc
+data/huggingface_cache
+data/hpo_logs
+data/hpo_studies
+data/eval_videos
+data/raw_frames
+data/raw_videos
+data/processed
+*.zip
+*.mp4
+*.pt
