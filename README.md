@@ -174,6 +174,44 @@ To avoid compiling PyTorch, CUDA bindings, and system libraries (FFmpeg) multipl
 
 ---
 
+## System Evaluation and Performance Metrics
+
+SignalSense AI uses a comprehensive, multi-dimensional evaluation framework to audit machine learning accuracy, linguistic generation quality, and system-level performance. These metrics are calculated continuously, tracked in real-time during hyperparameter optimization (HPO) trials, and exposed via Prometheus endpoints.
+
+### Narration Quality Metrics
+
+Linguistic evaluations ensure that the student vision-language model generates narrations that are grammatically accurate and semantically aligned with the gold-standard teacher VLM annotations.
+
+*   **BERTScore F1 Mean (`bert_f1_mean`)**: This is the primary metric for text quality optimization. Unlike traditional n-gram matching metrics (such as BLEU or ROUGE) which fail when synonyms are used, BERTScore leverages contextual embeddings from a pre-trained language model (e.g., DeBERTa or RoBERTa). It computes the cosine similarity between the generated student tokens and the reference teacher tokens. This allows the system to recognize semantic equivalence (e.g., matching "a person falls over" with "an individual collapses on the ground" with a high score).
+*   **BERTScore Precision (`bert_precision_mean`)**: Measures the proportion of generated student tokens that are semantically grounded in the teacher's reference text, penalizing hallucinations or extraneous information.
+*   **BERTScore Recall (`bert_recall_mean`)**: Measures the proportion of the teacher's reference tokens that were successfully captured by the student model's output, penalizing omissions of critical events.
+*   **BERTScore Standard Deviation (`bert_f1_std`)**: Audits the linguistic consistency and variance across diverse video feeds, ensuring that the model does not produce volatile text outputs.
+
+### Anomaly Detection Metrics
+
+To identify anomalous events in continuous surveillance feeds, the temporal transformer outputs continuous probability scores. These are evaluated using two threshold-independent classification metrics:
+
+*   **Area Under the Receiver Operating Characteristic Curve (AUROC)**: Tracks the trade-off between the True Positive Rate (Sensitivity) and the False Positive Rate (1 - Specificity) across all possible decision thresholds. An AUROC of 1.0 represents a perfect model, while 0.5 represents random guessing. Exposing this metric to the HPO engine ensures the temporal transformer maximizes event classification accuracy.
+*   **Area Under the Precision-Recall Curve (AUPRC)**: Since security anomalies are rare events (highly imbalanced datasets), AUROC can sometimes present an overly optimistic picture of model performance. AUPRC is highly sensitive to class imbalance, focusing on the ratio of true anomalies to false alarms. Maximizing AUPRC ensures the system minimizes false positive alerts, reducing operator fatigue in real-world control rooms.
+
+### Severity Classification Metrics
+
+Surveillance events are classified into distinct ordinal severity levels (low, medium, high). The following metrics are calculated:
+
+*   **Severity Accuracy**: The overall percentage of correctly classified severity levels across the validation set.
+*   **Per-Class Severity Accuracy**: Breaks down classification accuracy by individual severity classes. This prevents the system from optimizing for dominant "low-severity" classes while ignoring rare, critical "high-severity" events.
+
+### System and Infrastructure Telemetry
+
+To satisfy strict operational Service Level Agreements (SLAs), system performance and operational overhead are monitored continuously:
+
+*   **p95 Request Latency**: The 95th-percentile execution time (in milliseconds) of the video-ingestion-to-narration pipeline. In high-concurrency serving environments, minimizing p95 latency ensures the system maintains low response times even under sudden load spikes.
+*   **pHash Compression Ratio**: The percentage of raw video frames successfully filtered out as static/redundant. For example, if a 300-frame video is reduced to 60 frames after DCT hashing, the pHash compression ratio is 80%. This directly corresponds to an 80% reduction in downstream neural network compute costs.
+*   **GPU Memory (VRAM) Utilization**: Tracks active GPU resource overhead, serving as a constraint to prevent out-of-memory crashes during concurrent QLoRA training runs.
+*   **Rate Limits and RED Metrics**: Monitored via the Prometheus endpoint at `/metrics` to track the Rate (requests/sec), Errors (HTTP failure rates), and Duration (execution latencies) of the API services.
+
+---
+
 ## Deployment & Operations
 
 ### Prerequisites
